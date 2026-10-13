@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPS Location Finder</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 22px;
+      background: #0b1020;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      max-width: 480px;
+      margin: 25px auto;
+    }
+    h1 { font-size: 27px; margin-bottom: 8px; }
+    .sub { color: #aab5ca; line-height: 1.5; }
+    .card {
+      background: #151d30;
+      border: 1px solid #293650;
+      padding: 18px;
+      border-radius: 16px;
+      margin-top: 18px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      margin-top: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #60a5fa;
+      color: #081426;
+    }
+    button.secondary {
+      background: #26344e;
+      color: white;
+    }
+    .item {
+      padding: 12px 0;
+      border-bottom: 1px solid #293650;
+      overflow-wrap: anywhere;
+    }
+    .label { color: #aab5ca; font-size: 13px; }
+    .value { margin-top: 6px; font-size: 15px; }
+    a { color: #7dd3fc; overflow-wrap: anywhere; }
+    #status { line-height: 1.5; color: #93c5fd; }
+    .small { font-size: 12px; color: #aab5ca; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>📍 GPS Location Finder</h1>
+  <p class="sub">
+    Dapatkan koordinat GPS perangkat dan lihat lokasi di Google Maps.
+  </p>
+
+  <div class="card">
+    <div id="status">Tekan tombol untuk mulai mengambil lokasi.</div>
+    <button onclick="getLocation()">📡 Ambil Lokasi Saya</button>
+    <button class="secondary" onclick="copyLocation()">
+      📋 Salin Koordinat
+    </button>
+    <button class="secondary" onclick="findAddress()">
+      🏠 Cari Alamat Perkiraan
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="item">
+      <div class="label">Latitude</div>
+      <div class="value" id="lat">Belum tersedia</div>
+    </div>
+    <div class="item">
+      <div class="label">Longitude</div>
+      <div class="value" id="lon">Belum tersedia</div>
+    </div>
+    <div class="item">
+      <div class="label">Akurasi GPS</div>
+      <div class="value" id="accuracy">Belum tersedia</div>
+    </div>
+    <div class="item">
+      <div class="label">Ketinggian</div>
+      <div class="value" id="altitude">Belum tersedia</div>
+    </div>
+    <div class="item">
+      <div class="label">Kecepatan perangkat</div>
+      <div class="value" id="speed">Belum tersedia</div>
+    </div>
+    <div class="item">
+      <div class="label">Waktu pengambilan</div>
+      <div class="value" id="time">Belum tersedia</div>
+    </div>
+    <div class="item">
+      <div class="label">Alamat perkiraan</div>
+      <div class="value" id="address">Belum dicari</div>
+    </div>
+    <button class="secondary" onclick="openMap()">
+      🗺️ Buka di Google Maps
+    </button>
+  </div>
+
+  <div class="card">
+    <p class="small">
+      Privasi: lokasi hanya diambil setelah kamu menekan tombol dan
+      memberikan izin browser. Koordinat tidak dikirim ke server milik
+      halaman ini. Fitur pencarian alamat mengirim koordinat ke layanan
+      OpenStreetMap Nominatim untuk mencari alamat yang sesuai.
+      Akurasi dan ketersediaan data bergantung pada perangkat dan GPS.
+    </p>
+  </div>
+</div>
+
+<script>
+  let currentLat = null;
+  let currentLon = null;
+  let busy = false;
+
+  function setStatus(message) {
+    document.getElementById("status").textContent = message;
+  }
+
+  function getLocation() {
+    if (busy) return;
+
+    if (!navigator.geolocation) {
+      setStatus("Browser ini tidak mendukung GPS.");
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      setStatus(
+        "GPS memerlukan HTTPS atau localhost. " +
+        "Coba buka halaman melalui layanan hosting HTTPS."
+      );
+      return;
+    }
+
+    busy = true;
+    setStatus("Meminta izin dan mencari lokasi GPS...");
+
+    navigator.geolocation.getCurrentPosition(
+      function(position) {
+        busy = false;
+        const c = position.coords;
+
+        currentLat = c.latitude;
+        currentLon = c.longitude;
+
+        document.getElementById("lat").textContent =
+          currentLat.toFixed(7);
+        document.getElementById("lon").textContent =
+          currentLon.toFixed(7);
+        document.getElementById("accuracy").textContent =
+          "± " + Math.round(c.accuracy) + " meter";
+
+        document.getElementById("altitude").textContent =
+          c.altitude == null
+            ? "Tidak tersedia"
+            : c.altitude.toFixed(1) + " meter";
+
+        document.getElementById("speed").textContent =
+          c.speed == null
+            ? "Tidak tersedia"
+            : (c.speed * 3.6).toFixed(1) + " km/jam";
+
+        document.getElementById("time").textContent =
+          new Date(position.timestamp).toLocaleString("id-ID");
+
+        document.getElementById("address").textContent =
+          "Tekan Cari Alamat Perkiraan";
+
+        setStatus("Lokasi berhasil diperoleh.");
+      },
+      function(error) {
+        busy = false;
+        const messages = {
+          1: "Izin lokasi ditolak. Periksa izin browser.",
+          2: "Lokasi tidak tersedia. Periksa GPS perangkat.",
+          3: "Waktu pencarian habis. Coba lagi."
+        };
+        setStatus(messages[error.code] || "Gagal mendapatkan lokasi.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0
+      }
+    );
+  }
+
+  async function copyLocation() {
+    if (currentLat === null) {
+      setStatus("Ambil lokasi terlebih dahulu.");
+      return;
+    }
+
+    const text = currentLat + ", " + currentLon;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus("Koordinat berhasil disalin.");
+    } catch (e) {
+      setStatus("Salin manual: " + text);
+    }
+  }
+
+  function openMap() {
+    if (currentLat === null) {
+      setStatus("Ambil lokasi terlebih dahulu.");
+      return;
+    }
+
+    const url = "https://www.google.com/maps?q=" +
+      currentLat + "," + currentLon;
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function findAddress() {
+    if (currentLat === null) {
+      setStatus("Ambil lokasi terlebih dahulu.");
+      return;
+    }
+
+    const addressEl = document.getElementById("address");
+    addressEl.textContent = "Sedang mencari alamat...";
+    setStatus("Menghubungi layanan pencarian alamat OpenStreetMap...");
+
+    try {
+      const url =
+        "https://nominatim.openstreetmap.org/reverse?format=jsonv2" +
+        "&lat=" + encodeURIComponent(currentLat) +
+        "&lon=" + encodeURIComponent(currentLon) +
+        "&zoom=18&addressdetails=1";
+
+      const response = await fetch(url);
+
+      if (!response.ok) throw new Error("Layanan tidak tersedia");
+
+      const data = await response.json();
+      addressEl.textContent =
+        data.display_name || "Alamat tidak ditemukan.";
+
+      setStatus("Pencarian alamat selesai.");
+    } catch (error) {
+      addressEl.textContent = "Gagal mencari alamat. Coba lagi nanti.";
+      setStatus("Periksa koneksi internet atau coba lagi nanti.");
+    }
+  }
+</script>
+</body>
+</html>
